@@ -46,7 +46,6 @@
         Html5Qrcode.getCameras().then(devices => {
             if (devices && devices.length > 0) {
                 let cameraId = devices[0].id;
-                // মোবাইলের পেছনের ক্যামেরা খোঁজার লজিক
                 for (let i = 0; i < devices.length; i++) {
                     if (devices[i].label.toLowerCase().includes('back') || devices[i].label.toLowerCase().includes('environment')) {
                         cameraId = devices[i].id;
@@ -84,10 +83,8 @@
         html5QrcodeScanner.stop().catch(err => console.log(err));
         showStatus("সার্ভারে ডাটা আপডেট হচ্ছে, অপেক্ষা করুন...", "info-mode");
 
-        // QR থেকে NID আলাদা করা
         let nid = decodedText.replace("NID:", "").trim();
 
-        // গুগল শিটে লাইভ ডাটা পাঠানো
         fetch(`${webAppUrl}?action=scanDistribute&nid=${nid}`)
         .then(response => response.json())
         .then(data => {
@@ -107,7 +104,7 @@
     }
 
     function onScanFailure(error) {
-        // ফেইল ফ্রেম ইগনোর করা হচ্ছে স্পিড বাড়ানোর জন্য
+        // ফেইলিউর ইগনোর করা হলো স্পিড বৃদ্ধির জন্য
     }
 
     function showStatus(text, className) {
