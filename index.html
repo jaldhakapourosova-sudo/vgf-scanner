@@ -1,65 +1,83 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QR Code Scanner - NagorikPoint</title>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; margin: 20px; background-color: #f4f4f4; }
-        #reader { width: 100%; max-width: 500px; margin: auto; background: white; padding: 10px; border-radius: 8px; box-shadow: 0px 0px 10px rgba(0,0,0,0.1); }
-        #result { margin-top: 20px; font-size: 18px; font-weight: bold; color: green; }
-        .loading { color: orange; font-weight: bold; }
-    </style>
+  <meta charset="UTF-8">
+  <title>ভিজিএফ কিউআর স্ক্যানার প্যানেল</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    body { background-color: #f8f9fa; font-family: sans-serif; padding: 15px; text-align: center; }
+    #reader { width: 100%; max-width: 400px; margin: 0 auto; border-radius: 15px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+    .status { margin-top: 15px; font-weight: bold; font-size: 16px; color: #155724; background-color: #d4edda; padding: 10px; border-radius: 8px; display: inline-block; }
+  </style>
 </head>
 <body>
 
-    <h2>QR কোড স্ক্যানার প্যানেল</h2>
+  <div class="container">
+    <h3 class="text-success font-weight-bold mb-3">জলঢাকা পৌরসভা কিউআর স্ক্যানার</h3>
     <div id="reader"></div>
-    <div id="result">ক্যামেরা চালু করার অনুমতি দিন...</div>
+    <div id="statusText" class="status">📷 ক্যামেরা চালুর চেষ্টা করা হচ্ছে...</div>
+    <button onclick="location.reload()" class="btn btn-primary btn-block mt-3 font-weight-bold p-3">🔄 ক্যামেরা রি-স্টার্ট করুন</button>
+  </div>
 
-    <script>
-        // আপনার গুগল অ্যাপস স্ক্রিপ্টের WEB APP URL টি এখানে বসান
-        const googleWebAppUrl = "আপনার_GOOGLE_WEB_APP_URL_এখানে_দিন";
+<script>
+  let html5QrCode;
+  
+  function startScanning() {
+    html5QrCode = new Html5QrCode("reader");
+    
+    // facingMode: "environment" দিয়ে সরাসরি মোবাইলের পিছনের ক্যামেরা ফোর্স করা হচ্ছে
+    const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+    
+    html5QrCode.start(
+      { facingMode: "environment" }, 
+      config,
+      (decodedText) => {
+         document.getElementById("statusText").innerHTML = "⏳ ডাটা মেইন অ্যাপে পাঠানো হচ্ছে...";
+         
+         // কিউআর থেকে NID বের করা (যেমন- NID:123456789 থেকে শুধু 123456789 আলাদা করা)
+         let cleanNid = decodedText.replace("NID:", "").trim();
+         
+         // মেইন গুগল অ্যাপস স্ক্রিপ্ট উইন্ডোতে ডাটা ট্রান্সফার
+         if (window.opener) {
+            window.opener.postMessage({ type: 'QR_SCAN_SUCCESS', nid: cleanNid }, '*');
+            document.getElementById("statusText").innerHTML = "✔ সফল স্ক্যান: NID " + cleanNid;
+         } else {
+            alert("প্রধান উইন্ডো খুঁজে পাওয়া যায়নি! ড্যাশবোর্ড থেকে আবার বাটন চাপুন।");
+         }
+         
+         // ৩ সেকেন্ডের বিরতি যাতে একটানা বারবার একই কার্ড রিড না করে
+         html5QrCode.pause(true);
+         setTimeout(() => { 
+           html5QrCode.resume(); 
+           document.getElementById("statusText").innerHTML = "📷 পরবর্তী কার্ডের জন্য প্রস্তুত...";
+         }, 3000);
+      },
+      (errorMessage) => {
+         // প্রতি ফ্রেমের এরর ইগনোর করার জন্য খালি রাখা হলো
+      }
+    ).then(() => {
+       document.getElementById("statusText").innerHTML = "📷 পিছনের ক্যামেরা চালু হয়েছে। স্ক্যান করুন!";
+    }).catch((err) => {
+       document.getElementById("statusText").innerHTML = "❌ ক্যামেরা অ্যাক্সেস করা যায়নি! ড্রপডাউন থেকে ক্যামেরা সিলেক্ট করুন।";
+       // যদি তাও কোনো কারণে ব্যাক ক্যামেরা না আসে, তবে ইউজার চয়েস ক্যামেরা রেন্ডারার চালু হবে
+       fallbackScanner();
+    });
+  }
 
-        function onScanSuccess(decodedText, decodedResult) {
-            // সফলভাবে স্ক্যান হলে স্ক্যানার বন্ধ করা (যাতে বারবার রিকোয়েস্ট না যায়)
-            html5QrcodeScanner.clear();
-            
-            document.getElementById('result').innerHTML = `<span class="loading">ডাটা গুগল শিটে পাঠানো হচ্ছে... (${decodedText})</span>`;
-
-            // গুগল অ্যাপস স্ক্রিপ্ট ব্যাকএন্ডে ডাটা পাঠানো (Fetch API)
-            fetch(googleWebAppUrl, {
-                method: 'POST',
-                mode: 'no-cors', // CORS ব্লক এড়াতে no-cors ব্যবহার করা হয়েছে
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    qrCode: decodedText,
-                    operator: "Md. Lovlu Islam" // আপনার নাম বা ইউজারের নাম
-                })
-            })
-            .then(() => {
-                document.getElementById('result').innerHTML = `✅ সফলভাবে বিতরণ করা হয়েছে: ${decodedText}`;
-                // ৩ সেকেন্ড পর স্ক্যানার আবার চালু করার জন্য পেজ রিলোড করা
-                setTimeout(() => { location.reload(); }, 3000);
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                document.getElementById('result').innerHTML = "❌ ডাটা পাঠাতে সমস্যা হয়েছে। আবার চেষ্টা করুন।";
-            });
+  function fallbackScanner() {
+     if(html5QrCode) { html5QrCode.clear(); }
+     let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+     scanner.render((text) => {
+        let cleanNid = text.replace("NID:", "").trim();
+        if (window.opener) {
+          window.opener.postMessage({ type: 'QR_SCAN_SUCCESS', nid: cleanNid }, '*');
         }
+     });
+  }
 
-        // স্ক্যানার কনফিগারেশন এবং চালু করা
-        function startScanner() {
-            html5QrcodeScanner = new Html5QrcodeScanner(
-                "reader", { fps: 10, qrbox: { width: 250, height: 250 } }
-            );
-            html5QrcodeScanner.render(onScanSuccess);
-        }
-
-        window.onload = startScanner;
-    </script>
+  window.onload = startScanning;
+</script>
 </body>
 </html>
