@@ -1,107 +1,123 @@
 <!DOCTYPE html>
-<html>
+<html lang="bn">
 <head>
-  <meta charset="UTF-8">
-  <title>QR কোড স্ক্যানার প্যানেল</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
-  <style>
-    body { background-color: #f8f9fa; padding: 15px; text-align: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
-    #reader { width: 100%; max-width: 450px; margin: 0 auto; border: 2px solid #28a745; border-radius: 12px; overflow: hidden; background: #000; min-height: 250px; }
-    .status-msg { margin-top: 20px; padding: 12px; border-radius: 8px; font-weight: bold; }
-    .info { background-color: #e7f3ff; color: #004085; }
-    .success { background-color: #d4edda; color: #155724; }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>কিউআর কোড স্ক্যানার প্যানেল - জলঢাকা পৌরসভা</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Hind Siliguri', sans-serif; background-color: #f4f6f9; padding: 15px; }
+        .scanner-card { background: white; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20px; max-width: 500px; margin: auto; border-top: 6px solid #004d40; }
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; background: #000; border: none !important; }
+        .status-box { font-size: 18px; font-weight: 700; border-radius: 12px; padding: 15px; text-align: center; margin-top: 15px; display: none; }
+        .success-mode { background-color: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+        .error-mode { background-color: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+        .info-mode { background-color: #e2e3e5; color: #383d41; border: 2px solid #d6d8db; }
+        .btn-refresh { background-color: #00695c; color: white; border-radius: 12px; font-weight: bold; width: 100%; padding: 12px; margin-top: 15px; border: none; cursor: pointer; }
+    </style>
 </head>
 <body>
 
-  <div class="container">
-    <h2 class="text-success font-weight-bold mb-4">QR কোড স্ক্যানার প্যানেল</h2>
-    
-    <!-- ক্যামেরা রেন্ডার করার মেইন এরিয়া -->
-    <div id="reader"></div>
-    
-    <div id="statusText" class="status-msg info">ক্যামেরা চালু করার অনুমতি দিন...</div>
-    
-    <button onclick="restartScanner()" class="btn btn-outline-success btn-block mt-4 font-weight-bold">
-       🔄 ক্যামেরা রি-স্টার্ট করুন
-    </button>
-  </div>
+<div class="container mt-3">
+    <div class="scanner-card text-center">
+        <h3 class="text-success font-weight-bold mb-1">জলঢাকা পৌরসভা</h3>
+        <p class="text-muted font-weight-bold mb-3">ভিজিএফ-২০২৬ দ্রুত বিতরণ স্ক্যানার</p>
+        
+        <div id="reader"></div>
+        <div id="statusBox" class="status-box info-mode">ক্যামেরা চালু করার অনুমতি দিন...</div>
+        <button id="restartBtn" onclick="startScanner()" class="btn-refresh" style="display:none;">আবার স্ক্যান করুন 🔄</button>
+    </div>
+</div>
 
 <script>
-  let html5QrCode;
-
-  async function startScanning() {
-    const status = document.getElementById("statusText");
+    // আপনার গুগল অ্যাপস স্ক্রিপ্টের লাইভ ওয়েব অ্যাপ ইউআরএল
+    const webAppUrl = "https://script.google.com/macros/s/AKfybyCBkPAQBN41bpGmOz0H4qlmFa8NCOT2TVx4DPHLCbK1z2VPMMHI5YXEl9gBYZZb7A/exec"; 
     
-    // আগের সেশন থাকলে তা পরিষ্কার করা (TypeError সমাধান করবে)
-    if (html5QrCode) {
-      try {
-        await html5QrCode.stop();
-        await html5QrCode.clear();
-      } catch (err) {
-        console.log("Cleanup error:", err);
-      }
+    let html5QrcodeScanner;
+    let isProcessing = false;
+
+    function startScanner() {
+        document.getElementById("restartBtn").style.display = "none";
+        showStatus("ক্যামেরা চালু হচ্ছে...", "info-mode");
+        isProcessing = false;
+
+        Html5Qrcode.getCameras().then(devices => {
+            if (devices && devices.length > 0) {
+                let cameraId = devices[0].id;
+                // মোবাইলের পেছনের ক্যামেরা খোঁজার লজিক
+                for (let i = 0; i < devices.length; i++) {
+                    if (devices[i].label.toLowerCase().includes('back') || devices[i].label.toLowerCase().includes('environment')) {
+                        cameraId = devices[i].id;
+                        break;
+                    }
+                }
+                
+                if(html5QrcodeScanner) {
+                    html5QrcodeScanner.clear().catch(err => console.log(err));
+                }
+
+                html5QrcodeScanner = new Html5Qrcode("reader");
+                html5QrcodeScanner.start(
+                    cameraId, 
+                    { fps: 10, qrbox: { width: 250, height: 250 } },
+                    onScanSuccess,
+                    onScanFailure
+                ).then(() => {
+                    showStatus("কার্ডের কিউআর কোড সামনে ধরুন...", "info-mode");
+                }).catch(err => {
+                    showStatus("ক্যামেরা চালু করা যায়নি: " + err, "error-mode");
+                });
+            } else {
+                showStatus("কোনো ক্যামেরা পাওয়া যায়নি!", "error-mode");
+            }
+        }).catch(err => {
+            showStatus("ক্যামেরা পারমিশন দিন এবং রিফ্রেশ করুন।", "error-mode");
+        });
     }
 
-    html5QrCode = new Html5QrCode("reader");
-    
-    const config = { 
-      fps: 15, 
-      qrbox: { width: 250, height: 250 },
-      aspectRatio: 1.0 
-    };
+    function onScanSuccess(decodedText) {
+        if (isProcessing) return;
+        isProcessing = true;
+        
+        html5QrcodeScanner.stop().catch(err => console.log(err));
+        showStatus("সার্ভারে ডাটা আপডেট হচ্ছে, অপেক্ষা করুন...", "info-mode");
 
-    // সরাসরি পিছনের ক্যামেরা ট্রাই করা হচ্ছে
-    html5QrCode.start(
-      { facingMode: "environment" }, 
-      config,
-      (decodedText) => {
-         status.className = "status-msg success";
-         status.innerHTML = "✔ সফল স্ক্যান! ডাটা পাঠানো হচ্ছে...";
-         
-         let cleanNid = decodedText.replace("NID:", "").trim();
-         
-         if (window.opener) {
-            window.opener.postMessage({ type: 'QR_SCAN_SUCCESS', nid: cleanNid }, '*');
-         } else {
-            alert("মেইন ড্যাশবোর্ড উইন্ডো খুঁজে পাওয়া যায়নি।");
-         }
+        // QR থেকে NID আলাদা করা
+        let nid = decodedText.replace("NID:", "").trim();
 
-         // ৩ সেকেন্ড হোল্ড করে আবার স্ক্যান শুরু করবে
-         html5QrCode.pause(true);
-         setTimeout(() => { 
-           html5QrCode.resume(); 
-           status.className = "status-msg info";
-           status.innerHTML = "📷 পরবর্তী স্ক্যানের জন্য প্রস্তুত...";
-         }, 3000);
-      },
-      (errorMessage) => { /* ফ্রেম এরর ইগনোর */ }
-    ).catch(err => {
-       status.className = "status-msg text-danger";
-       status.innerHTML = "❌ ক্যামেরা এরর: " + err;
-       // ব্যাক ক্যামেরা ফেল করলে ড্রপডাউন অপশন দেখাবে
-       showScannerWithSelector();
-    });
-  }
+        // গুগল শিটে লাইভ ডাটা পাঠানো
+        fetch(`${webAppUrl}?action=scanDistribute&nid=${nid}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                showStatus(`✅ বিতরণ সফল!<br><b>নাম:</b> ${data.name}<br><b>ক্রমিক নং:</b> ${data.serial}`, "success-mode");
+            } else if (data.status === "already_done") {
+                showStatus(`⚠️ দুঃখিত!<br><b>${data.name}</b> ইতিপূর্বেই চাল নিয়েছেন।`, "error-mode");
+            } else {
+                showStatus("❌ এই কার্ডটি ডাটাবেজে পাওয়া যায়নি!", "error-mode");
+            }
+            document.getElementById("restartBtn").style.display = "block";
+        })
+        .catch(error => {
+            showStatus("🌐 নেটওয়ার্ক সমস্যা! আবার চেষ্টা করুন।", "error-mode");
+            document.getElementById("restartBtn").style.display = "block";
+        });
+    }
 
-  function showScannerWithSelector() {
-    if(html5QrCode) { html5QrCode.clear(); }
-    const scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
-    scanner.render((text) => {
-        let cleanNid = text.replace("NID:", "").trim();
-        if (window.opener) {
-          window.opener.postMessage({ type: 'QR_SCAN_SUCCESS', nid: cleanNid }, '*');
-        }
-    });
-  }
+    function onScanFailure(error) {
+        // ফেইল ফ্রেম ইগনোর করা হচ্ছে স্পিড বাড়ানোর জন্য
+    }
 
-  function restartScanner() {
-    location.reload();
-  }
+    function showStatus(text, className) {
+        const box = document.getElementById("statusBox");
+        box.style.display = "block";
+        box.className = "status-box " + className;
+        box.innerHTML = text;
+    }
 
-  window.onload = startScanning;
+    window.onload = startScanner;
 </script>
 </body>
 </html>
